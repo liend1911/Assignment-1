@@ -1,0 +1,217 @@
+---
+title: "Assignment 1: Application"
+author: "Lien Dao"
+date: "2/27/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Indicators data
+```{r}
+library(datasets)
+library(readr)
+url <- "https://gattonweb.uky.edu/sheather/book/docs/datasets/indicators.txt"
+indicators <- read.table(url, header = TRUE)
+print(indicators)
+```
+\break
+
+## Question 6
+**Simple linear regression model**
+```{r}
+indicators_lm <- lm(PriceChange ~ LoanPaymentsOverdue, data = indicators)
+summary(indicators_lm)
+```
+\hfill
+a) 95% CI
+```{r}
+confint_95 <- confint(indicators_lm)[2, ]
+confint_95
+```
+\hfill
+b) 95% CI for E[Y|X=4]
+```{r}
+predict(indicators_lm, data.frame(LoanPaymentsOverdue = 4), interval = "confidence")
+```
+\break
+## Question 7
+**Function to calculate basic statistics**
+```{r} 
+RSS <- function(x,y){
+  mean_x <- mean(x)
+  mean_y <- mean(y)
+  
+  Sxy = sum((x - mean(x)) * (y - mean(y)))
+  Sxx = sum((x - mean(x))^2)
+  Syy = sum((y - mean(y))^2)
+    
+  beta_1_hat = Sxy / Sxx
+  beta_0_hat = mean(y) - beta_1_hat * mean(x)
+  result <- data.frame(mean_x, mean_y,
+                       Sxx, Syy, Sxy, 
+                       beta_0_hat, beta_1_hat)
+}
+```
+\hfill
+**Results**
+```{r}
+rss_all <- RSS(indicators$LoanPaymentsOverdue, indicators$PriceChange)
+rss_all
+```
+\break
+## Question 8
+a) Calculate predicted y
+```{r}
+indicators$pred_y <- rss_all[1,6] + rss_all[1,7]*indicators$LoanPaymentsOverdue
+```
+\hfill
+**Function to get ANOVA table's elements**
+```{r}
+ANOVA <- function(n,x,y,y_pred){
+  df_reg <- 1
+  df_res <- n-2
+  df_total <- n-1
+
+  SS_reg = sum((y_pred - mean(y))^2)
+  SSE = sum((y - y_pred)^2)
+  SST = sum((y - mean(y))^2)
+  
+  MSR = SS_reg/df_reg
+  MSE = SSE/df_res
+  
+  F_stat = MSR/MSE
+  
+  p_value <- pf(F_stat, df_reg, df_res, lower.tail = FALSE)
+  result <- data.frame(df_reg, df_res, df_total,
+                       SS_reg, SSE, SST,
+                       MSR, MSE, NA,
+                       F_stat, NA, NA,
+                       p_value, NA, NA)
+}
+```
+\hfill
+**ANOVA table**
+```{r}
+num_value <- 18
+anova_all <- ANOVA(num_value,indicators$LoanPaymentsOverdue,indicators$PriceChange,indicators$pred_y)
+anova_table <- matrix(anova_all,ncol = 5)
+dimnames(anova_table) <- list("  Group" = c("Regression", "Residual", "Total"),
+                              "ANOVA" = c("Df", "SS", "MS", "F stat", "P value"))
+anova_table
+```
+\hfill
+b) Unbiased estimator of Var(Y|X) is S^2 (or MSE)
+```{r}
+unbiased_s <- anova_all[1,8]
+unbiased_s
+```
+\break
+## Question 9
+a) Standard error of b1 hat 
+```{r}
+se_b1_hat <- sqrt(unbiased_s/rss_all[1,3])
+se_b1_hat
+```
+\hfill
+b) Ho: b1=0; Ha: b1 >< 0
+```{r}
+t_stat <- abs(rss_all[1,7]/se_b1_hat)
+t_stat
+t_critical <- qt(p=0.05/2, df=(num_value-2), lower.tail=FALSE)
+t_critical
+as.logical(t_stat>t_critical)
+```
+\hfill
+*Conclusion:* We reject the null hypothesis and conclude that there a linear association between X and Y at 0.05 significant level
+
+\break
+
+## Question 10
+a) 95% CI for b1
+```{r}
+lwb <- rss_all[1,7] - t_critical*se_b1_hat
+upb <- rss_all[1,7] + t_critical*se_b1_hat
+confint_b1 <- c(lwb, upb)
+confint_b1
+```
+\hfill
+*Conclusion:* We reject the null hypothesis because 0 does not belong to the confidence interval (we have the same conclusion as before)
+
+\hfill
+
+b) 95% CIs for population regression line and prediction intervals of Y
+
+**Function to obtain 95% CIs for population regression line**
+```{r}
+confi_reg <- function(n,x_real,x,y){
+  t_critical <- qt(p=0.05/2, df=(num_value-2), lower.tail=FALSE)
+  y_pred <- rss_all[1,6] + rss_all[1,7]*x_real
+  lwb <- y_pred - t_critical*sqrt(unbiased_s*((1/n)+(x_real-mean(x))^2/rss_all[1,3]))
+  upb <- y_pred + t_critical*sqrt(unbiased_s*((1/n)+(x_real-mean(x))^2/rss_all[1,3]))
+  result <- c(lwb,upb)
+}
+```
+\hfill
+x = 2.1
+```{r}
+x1 <- confi_reg(num_value,2.1,indicators$LoanPaymentsOverdue,indicators$PriceChange)
+x1
+```
+\hfill
+x = 3.3
+```{r}
+x2 <- confi_reg(num_value,3.3,indicators$LoanPaymentsOverdue,indicators$PriceChange)
+x2
+```
+\hfill
+x = 4.0
+```{r}
+x3 <- confi_reg(num_value,4.0,indicators$LoanPaymentsOverdue,indicators$PriceChange)
+x3
+```
+\hfill
+x = 4.4
+```{r}
+x4 <- confi_reg(num_value,4.4,indicators$LoanPaymentsOverdue,indicators$PriceChange)
+x4
+```
+\hfill
+**Function to obtain prediction intervals of Y**
+```{r}
+confi_Y <- function(n,x_real,x,y){
+  t_critical <- qt(p=0.05/2, df=(num_value-2), lower.tail=FALSE)
+  y_pred <- rss_all[1,6] + rss_all[1,7]*x_real
+  lwb <- y_pred - t_critical*sqrt(unbiased_s*(1+(1/n)+(x_real-mean(x))^2/rss_all[1,3]))
+  upb <- y_pred + t_critical*sqrt(unbiased_s*(1+(1/n)+(x_real-mean(x))^2/rss_all[1,3]))
+  result <- c(lwb,upb)
+}
+```
+\hfill
+x = 2.1
+```{r}
+y_x1 <- confi_Y(num_value,2.1,indicators$LoanPaymentsOverdue,indicators$PriceChange)
+y_x1
+```
+\hfill
+x = 3.3
+```{r}
+y_x2 <- confi_Y(num_value,3.3,indicators$LoanPaymentsOverdue,indicators$PriceChange)
+y_x2
+```
+\hfill
+x = 4.0
+```{r}
+y_x3 <- confi_Y(num_value,4.0,indicators$LoanPaymentsOverdue,indicators$PriceChange)
+y_x3
+```
+\hfill
+x = 4.4
+```{r}
+y_x4 <- confi_Y(num_value,4.4,indicators$LoanPaymentsOverdue,indicators$PriceChange)
+y_x4
+```
+\hfill
+## End
+
