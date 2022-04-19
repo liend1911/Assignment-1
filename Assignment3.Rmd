@@ -1,0 +1,229 @@
+---
+title: "Assignment 3"
+author: "Lien Dao"
+date: "4/10/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## 4.2.1
+```{r}
+library(datasets)
+library(readr)
+url1 <- "https://gattonweb.uky.edu/sheather/book/docs/datasets/ProfessorSalaries.txt"
+salary <- read.table(url1, header = TRUE)
+head(salary)
+```
+
+\hfill
+
+**Simple linear regression model**
+```{r}
+salary_lm <- lm(ThirdQuartile ~ Experience, data = salary)
+summary(salary_lm)
+
+anova(salary_lm)
+```
+
+```{r}
+par(mfrow=c(1,3))
+plot(salary$Experience, salary$ThirdQuartile, xlab = "Experience", 
+                                              ylab = "ThirdQuartile")
+abline(salary_lm, lty=2,col=2)
+fit_val <- fitted(salary_lm)
+StanRes1 <- rstandard(salary_lm)
+absrtsr1 <- sqrt(abs(StanRes1))
+plot(fit_val, StanRes1, ylab="Standardized Residuals", xlab = "Fitted values")
+abline(lsfit(fit_val, StanRes1), lty=2, col=2)
+plot(fit_val, absrtsr1, ylab="Square Root(|Standardized Residuals|)", 
+                                  xlab = "Fitted values")
+abline(lsfit(fit_val, absrtsr1), lty=2, col=2)
+```
+When we examine the scatter plot between third quartile salary and experience, 
+we notice that the observations don't follow the line of best fit and one of them 
+is too far from both the line and other points. The distribution of random errors 
+from residual plots shows that the condition for constant variance does not meet 
+since it has a slight funnel shape. 
+
+\hfill
+
+\break 
+
+**Weighted least squares**
+```{r}
+wt <- 1 / lm(abs(salary_lm$residuals) ~ salary_lm$fitted.values)$fitted.values^2
+
+salary_wls <- lm(ThirdQuartile ~ Experience, data = salary,  weights = wt)
+summary(salary_wls)
+anova(salary_wls)
+```
+
+\hfill
+
+**Function to calculate weighted parameters**
+```{r}
+wls_stats <- function(n,x,y,wts){
+  wmean_x <- sum(wts*x)/sum(wts)
+  wmean_y <- sum(wts*y)/sum(wts)
+  
+  beta_1_hat = sum(wts*(x-wmean_x)*(y-wmean_y))/sum(wts*(x-wmean_x)^2)
+  beta_0_hat = wmean_y-beta_1_hat*wmean_x
+  result <- data.frame(n, wmean_x, wmean_y,
+                       beta_0_hat, beta_1_hat)
+}
+wls_result <- wls_stats(10, salary$Experience, salary$ThirdQuartile,wt)
+wls_result
+```
+
+\hfill
+
+**Predicted y using weighted statistics**
+```{r}
+pred_y <- wls_result[1,4] + wls_result[1,5]*salary$Experience
+```
+
+\hfill
+
+**Function to calculate ANOVA statistics using weighted statistics**
+```{r}
+ANOVA <- function(n,x,y,wm_y,y_pred, wt){
+  df_reg <- 1
+  df_res <- n-2
+  df_total <- n-1
+  
+  SS_reg = sum(wt*(y_pred - wm_y)^2)
+  SSE = sum(wt*(y - y_pred)^2)
+  SST = sum(wt*(y - wm_y)^2)
+  
+  MSR = SS_reg/df_reg
+  MSE = SSE/df_res
+  
+  F_stat = MSR/MSE
+  
+  p_value <- pf(F_stat, df_reg, df_res, lower.tail = FALSE)
+  result <- data.frame(df_reg, df_res, df_total,
+                       SS_reg, SSE, SST,
+                       MSR, MSE, NA,
+                       F_stat, NA, NA,
+                       p_value, NA, NA)
+}
+anova_values <- ANOVA(10,salary$Experience,salary$ThirdQuartile,
+                      wls_result[1,3],pred_y,wt)
+anova_values
+```
+
+The values are the same as using anova().
+
+\hfill
+
+**Estimated third quartile salary of full professors with 6 years of experience**
+```{r}
+sixy_salary <- wls_result[1,4] + wls_result[1,5]*6
+```
+
+\break
+
+## 5.4.2
+```{r, message=FALSE}
+library(readr)
+HoustonChronicle <- read_csv("C:/Users/Sen/Downloads/HoustonChronicle.csv")
+head(HoustonChronicle)
+library(tidyverse)
+df <- rename(HoustonChronicle, repeat_pct = "%Repeating 1st Grade", 
+                               low_income = "%Low income students")
+```
+
+\hfill
+
+a)
+```{r}
+m1 <- lm(repeat_pct ~ low_income, data = df) 
+summary(m1)
+anova(m1)
+plot(df$low_income,df$repeat_pct,xlab="%Low income students", ylab="%Repeating 1st Grade", axes=FALSE)
+abline(m1, lty=2,col=2)
+```
+Because the p-value for percentage of low income students is smaller than 0.05 and its coefficient is positive, there is enough evidence to conclude that an increase in the percentage of low income students is associated with an increase in the percentage of students repeating first grade. 
+
+\hfill
+
+b)
+```{r}
+new_year <- as.factor(df$Year)
+
+library(ggplot2)
+ggplot(aes(y = df$repeat_pct, x = new_year), data = df) + geom_boxplot() +
+       xlab("Year") + ylab("%Repeating 1st Grade") + 
+       ggtitle("Boxplot for percentage of repeating 1st grade in 1994–1995 and 2004–2005")
+ggplot(aes(y = df$low_income, x = new_year), data = df) + geom_boxplot() + 
+       xlab("Year") + ylab("%Low income students") + 
+       ggtitle("Boxplot for percentage of low income students in 1994–1995 and 2004–2005")
+
+levels(as.factor(new_year))
+m2 <- lm(repeat_pct ~ low_income + new_year, data = df)
+summary(m2)
+anova(m2)
+```
+The boxplots of percentage of students repeating first grade and percentage of low income students from 1994 and 2004 both show that the overall percentages in 2004 are higher. Because we choose the period to be a dummy variable, when the students repeated 1st grade in 1994-1995, the model is %Repreat = 2.849 + 0.07248x; but when the students repeated 1st grade in 2004-2005, the model is %Repreat = 3.232 + 0.07248x, which shows that there has been an increase in the percentage of students repeating first grade between 1994–1995 and 2004–2005.
+
+\hfill
+
+c)
+```{r}
+m3 <- lm(repeat_pct ~ low_income + new_year + low_income*new_year, data = df)
+summary(m3)
+anova(m3)
+anova(m1,m3)
+```
+At the 0.05 significant level, there is not enough evidence to support the hypothesis that there is an association between percentage of low income students and the years. Also, given the p-value equals 0.7761 when we compare the reduced model with the model containing the interaction, there is no evidence to support the alternative hypothesis. This means that we will only adopt the reduced model. 
+
+\hfill
+
+\break
+
+
+## 5.4.3
+
+```{r}
+url2 <- "https://gattonweb.uky.edu/sheather/book/docs/datasets/Latour.txt"
+harvest <- read.table(url2, header = TRUE)
+head(harvest)
+```
+
+\hfill
+
+a)
+```{r}
+m4 <- lm(Quality ~ EndofHarvest + Rain + EndofHarvest*Rain, data = harvest)
+m4_reduced <- lm(Quality ~ EndofHarvest + Rain, data = harvest)
+summary(m4)
+anova(m4_reduced,m4)
+```
+
+\hfill
+
+Because the p-value of the interaction variable between the days and rain is less than 0.05, the coefficient of the interaction term is statistically significant, which shows that the rate of change in quality rating depends on whether there has been any unwanted rain at vintage.
+
+\hfill
+
+b) Estimate the number of days of delay to the end of harvest it takes to decrease the quality rating by 1 point
+```{r}
+coeff <- m4$coefficients
+coeff
+```
+(i) No unwanted rain at harvest 
+```{r}
+no_rain_day <- ((coeff[1]-1)-coeff[1])/coeff[2]
+no_rain_day
+```
+(ii) Some unwanted rain at harvest 
+```{r}
+some_rain_day <- ((coeff[1]+coeff[3]-1)-coeff[1]-coeff[3])/(coeff[2]+coeff[4])
+some_rain_day
+```
+
+\hfill
+
+## End

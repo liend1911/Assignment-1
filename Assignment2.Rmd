@@ -1,0 +1,233 @@
+---
+title: "Assignment2"
+author: "Lien Dao"
+date: "3/20/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Question 3.4.4
+**Tonnage data**
+
+```{r}
+library(datasets)
+library(readr)
+url1 <- "https://gattonweb.uky.edu/sheather/book/docs/datasets/glakes.txt"
+tonnage <- read.table(url1, header = TRUE)
+print(tonnage)
+```
+\hfill
+
+**Simple linear regression model 1**
+
+```{r}
+tonnage_lm <- lm(Time ~ Tonnage, data = tonnage)
+summary(tonnage_lm)
+```
+
+\hfill
+
+```{r}
+par(mfrow=c(2,2))
+plot(tonnage$Tonnage, tonnage$Time, xlab = "Tonnage", ylab = "Time")
+abline(tonnage_lm, lty=2,col=2)
+StanRes1 <- rstandard(tonnage_lm)
+absrtsr1 <- sqrt(abs(StanRes1))
+plot(tonnage$Tonnage, StanRes1, ylab="Standardized Residuals", xlab = "Tonnage")
+plot(tonnage$Tonnage, absrtsr1, ylab="Square Root(|Standardized Residuals|)", 
+                                xlab = "Tonnage")
+abline(lsfit(tonnage$Tonnage, absrtsr1), lty=2, col=2)
+qqnorm(StanRes1, ylab="Standardized Residuals")
+qqline(StanRes1, lty=2, col=2)
+```
+\hfill
+\hfill
+
+a1) The straight line regression model (3.8) seem to NOT fit the data well. The scatterplot shows that the time required increases as the volume of a ship’s cargo increases, but the variance also increases. The variability in the standardized residuals tends to increase with the higher tonnages. We can also detect some outliers. There is a nonrandom pattern (is close to funnel shape and varies greatly to the right) evident in the plot of standardized residuals.
+
+\hfill
+
+```{r}
+par(mfrow=c(3,2))
+plot(density(tonnage$Time, bw="SJ", kern="gaussian"), type="l", 
+     main="Gaussian kernel density estimate", xlab="Time")
+rug(tonnage$Time)
+plot(density(tonnage$Tonnage, bw="SJ", kern="gaussian"), type="l", 
+     main="Gaussian kernel density estimate", xlab="Tonnage")
+rug(tonnage$Tonnage)
+
+boxplot(tonnage$Time ,ylab="Time")
+boxplot(tonnage$Tonnage,ylab="Tonnage")
+
+qqnorm(tonnage$Time, ylab = "Time")
+qqline(tonnage$Time, lty = 2, col=2)
+qqnorm(tonnage$Tonnage, ylab = "Tonnage")
+qqline(tonnage$Tonnage, lty = 2, col=2)
+```
+
+\hfill
+
+b1) Calculate a prediction interval for Time when Tonnage = 10,000
+```{r}
+pred_time <- predict(tonnage_lm, data.frame(Tonnage = 10000), 
+                     interval = "prediction")
+pred_time
+```
+\hfill
+The prediction interval for Tonnage = 10,000 is probably be too short, but might be valid.This is to be expected in this situation since on the original scale the data have variance which increases as the x-variable increases meaning that realistic prediction intervals will get wider as the x-variable increases.Generally, we expect the intervals for Time to be large for high tonnages and short for low tonnages.
+
+\hfill
+
+**Simple linear regression model 2**
+
+```{r}
+new_ton <- tonnage$Tonnage^0.25
+new_time <- log(tonnage$Time)
+tonnage_lm2 <- lm(new_time ~ new_ton, data = tonnage)
+summary(tonnage_lm2)
+```
+\hfill
+
+a2) Even though model 2's R-squared is lower, the ability to predict time seems to improve. The residuals distribute more randomly. Prediction intervals for Time might align more with the volumes for model 2 because of the more random residuals and the values distribute more evenly along the regression line. 
+```{r}
+par(mfrow=c(2,2))
+plot(new_ton, new_time, xlab = "Tonnage^0.25", ylab = "log(Time)")
+abline(tonnage_lm2, lty=2,col=2)
+StanRes2 <- rstandard(tonnage_lm2)
+absrtsr2 <- sqrt(abs(StanRes2))
+plot(new_ton, StanRes2, ylab="Standardized Residuals", xlab = "Tonnage^0.25")
+plot(new_ton, absrtsr2, ylab="Square Root(|Standardized Residuals|)", 
+                        xlab = "Tonnage^0.25")
+abline(lsfit(new_ton, absrtsr2), lty=2, col=2)
+qqnorm(StanRes2, ylab="Standardized Residuals")
+qqline(StanRes2, lty=2, col=2)
+```
+\hfill
+
+b2) Instead of having a funnel shape with smaller left tail, the distribution of the residuals seem to have a slight nonrandom pattern with a small right tail, which shows that the residuals’ variability decreases for higher tonnages. There are also more values concentrating to the left of the distribution that is not fixed entirely after the transformation.
+
+\break
+
+## Question 3.4.6
+```{r}
+library(car)
+set.seed(3)
+n <- 500
+x <- runif(n,0,1)^3
+e <- rnorm(n,0,0.1)
+y <- exp(2.5 + 1*x + e)
+hist(x)
+hist(y)
+sample_lm3 <- lm(y ~ x)
+par(mfrow=c(1,1))
+inverseResponsePlot(sample_lm3,key=TRUE)
+```
+For the inverse plot of y and yhat to give an estimate of lambda that is close to the correct value of lamdba for this model, the distribution of Y needs to be skewed and the distribution of x needs to be symmetric or is approximately normally distributed. In this situation, x is assumed to be highly skewed, which leads to an incorrect lambda estimate. 
+
+\break
+
+## Question 3.4.8
+**Diamond data**
+
+```{r}
+url2 <- "https://gattonweb.uky.edu/sheather/book/docs/datasets/diamonds.txt"
+diamond <- read.table(url2, header = TRUE)
+print(diamond)
+```
+\hfill
+
+**Simple linear regression model 3**
+```{r}
+diamond_lm3 <- lm(Price ~ Size, data = diamond)
+summary(diamond_lm3)
+```
+\hfill
+
+**Part 1**
+
+a) The model is given by Price = -258.05 + 3715.02*Size
+We choose to build a simple linear regression model because there is clearly a linear relationship between Size and Price based on the scatter plot.
+
+\hfill
+
+```{r}
+par(mfrow=c(2,2))
+plot(diamond$Size, diamond$Price, xlab = "Size", ylab = "Price")
+abline(diamond_lm3, lty=2,col=2)
+StanRes3 <- rstandard(diamond_lm3)
+absrtsr3 <- sqrt(abs(StanRes3))
+plot(diamond$Size, StanRes3, ylab="Standardized Residuals", xlab = "Size")
+abline(h=2,lty=2)
+abline(h=-2,lty=2)
+plot(diamond$Size, absrtsr3, ylab="Square Root(|Standardized Residuals|)", 
+                             xlab = "Size")
+abline(lsfit(diamond$Size, absrtsr3), lty=2, col=2)
+qqnorm(StanRes3, ylab="Standardized Residuals")
+qqline(StanRes3, lty=2, col=2)
+```
+\hfill
+
+b) Overall, the model has strong statistics. The p-value of variable Size is small and significant, which indicates that there is a relationship between Size and Price. The model also has a high R-squared, which shows that the model fits the data well. However, if we look at the standardized residuals plot, there are two leverage points (outliers) because they lie outside of [-2,2]. The distribution of data points in the normal Q-Q plot is slightly not linear. Moreover, the residuals don't have a constant variance since they vary greatly. Therefore, we can examine the leverage points/outliers or apply transformations to improve the model and avoid non-constant variance.
+
+\hfill
+
+**Part 2**
+
+a) Cook's Distance to evaluate the leverage points
+```{r}
+N <- 49
+cd <- cooks.distance(diamond_lm3)
+plot(diamond$Size, cd, xlab="Size", ylab="Cook's Distance")
+abline(h=4/(N-2),lty=2)
+lev_points <- ifelse(cd > 4/(N-2), diamond$Size, NA)
+df_lev <- as.data.frame(lev_points)
+subset(df_lev, df_lev$lev_points != "NA")
+```
+
+\hfill
+
+There are 3 leverage points. The 0.18 and 0.25 carat diamonds' prices seem not too unrealistic from prices of other diamonds of the similar sizes. However, the 0.35 carat diamond is sold with a much higher price so it needs to be checked and confirmed. 
+We build a linear model without the three leverage points identified earlier.
+
+\hfill
+
+```{r}
+new_diamond <- diamond[c(-4,-19,-42),]
+diamond_lm4 <- lm(Price ~ Size, data = new_diamond)
+summary(diamond_lm4)
+```
+
+\hfill
+
+The model has a much higher R-squared.
+
+\hfill
+
+```{r}
+par(mfrow=c(2,2))
+plot(new_diamond$Size, new_diamond$Price, xlab = "Size", ylab = "Price")
+abline(diamond_lm4, lty=2,col=2)
+StanRes4 <- rstandard(diamond_lm4)
+absrtsr4 <- sqrt(abs(StanRes4))
+plot(new_diamond$Size, StanRes4, ylab="Standardized Residuals", xlab = "Size")
+abline(h=2,lty=2)
+abline(h=-2,lty=2)
+plot(new_diamond$Size, absrtsr4, ylab="Square Root(|Standardized Residuals|)", 
+                                 xlab = "Size")
+abline(lsfit(new_diamond$Size, absrtsr4), lty=2, col=2)
+qqnorm(StanRes4, ylab="Standardized Residuals")
+qqline(StanRes4, lty=2, col=2)
+```
+
+\hfill
+
+b) Even though the value of R-squared improves, the model has new leverage points after omitting the previous leverage points. Also, the variance of residuals is not so constant since they cluster to the left of the distribution and vary greatly. 
+
+\hfill
+
+**Part 3**
+
+After the modification, the model B has stronger statistics than model A. For model B, if we look at the standardized residuals plot, the new leverage points are closer to [-2,2]. The distribution of data points in the normal Q-Q plot is really close to being diagonal. Moreover, the residuals' variance improve and appear to be more stable than model A's. 
+
